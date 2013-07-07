@@ -25,6 +25,7 @@ using System.Text;
 
 using HPMSdk;
 using Hansoft.ObjectWrapper;
+using Hansoft.ObjectWrapper.CustomColumnValues;
 
 namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
 {{
@@ -245,35 +246,35 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
 
         public override void OnTaskChange(TaskChangeEventArgs e)
         {
-            if (Task.GetTask(e.Data.m_TaskID).MainProjectID.m_ID == project.UniqueID.m_ID)
-            {
+//            if (Task.GetTask(e.Data.m_TaskID).MainProjectID.m_ID == project.UniqueID.m_ID)
+//            {
                 if (!BufferedEvents)
                     DoUpdate();
                 else
                     changeImpact = true;
-            }
+//            }
         }
 
         public override void OnTaskChangeCustomColumnData(TaskChangeCustomColumnDataEventArgs e)
         {
-            if (Task.GetTask(e.Data.m_TaskID).MainProjectID.m_ID == project.UniqueID.m_ID)
-            {
+//            if (Task.GetTask(e.Data.m_TaskID).MainProjectID.m_ID == project.UniqueID.m_ID)
+//            {
                 if (!BufferedEvents)
                     DoUpdate();
                 else
                     changeImpact = true;
-            }
+//            }
         }
 
         public override void OnTaskCreate(TaskCreateEventArgs e)
         {
-            if (e.Data.m_ProjectID.m_ID == project.UniqueID.m_ID)
-            {
+//            if (e.Data.m_ProjectID.m_ID == projectView.UniqueID.m_ID)
+//            {
                 if (!BufferedEvents)
                     DoUpdate();
                 else
                     changeImpact = true;
-            }
+//            }
         }
 
         public override void OnTaskDelete(TaskDeleteEventArgs e)
@@ -286,13 +287,13 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
 
         public override void OnTaskMove(TaskMoveEventArgs e)
         {
-            if (e.Data.m_ProjectID.m_ID == project.UniqueID.m_ID)
-            {
+//            if (e.Data.m_ProjectID.m_ID == projectView.UniqueID.m_ID)
+//            {
                 if (!BufferedEvents)
                     DoUpdate();
                 else
                     changeImpact = true;
-            }
+//            }
         }
     }
 }
