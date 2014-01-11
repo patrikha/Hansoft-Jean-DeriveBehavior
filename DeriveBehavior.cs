@@ -106,7 +106,11 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
             {
                 object expressionValue = mInfo.Invoke(null, new object[] { task });
                 if (isCustomColumn)
-                    task.SetCustomColumnValue(customColumn, expressionValue);
+                {
+                    // Ensure that we get the custom column of the right project
+                    HPMProjectCustomColumnsColumn actualCustomColumn = task.ProjectView.GetCustomColumn(customColumn.m_Name);
+                    task.SetCustomColumnValue(actualCustomColumn, expressionValue);
+                }
                 else
                     task.SetDefaultColumnValue(defaultColumnType, expressionValue);
             }
@@ -114,17 +118,22 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
 
         string projectName;
         EHPMReportViewType viewType;
-        Project project;
-        ProjectView projectView;
+        List<Project> projects;
+        bool inverted = false;
+        List<ProjectView> projectViews;
         string find;
         List<DerivedColumn> derivedColumns;
         bool changeImpact = false;
         string title;
+        bool initializationOK = false;
 
         public DeriveBehavior(XmlElement configuration)
             : base(configuration) 
         {
             projectName = GetParameter("HansoftProject");
+            string invert = GetParameter("InvertedMatch");
+            if (invert != null)
+                inverted = invert.ToLower().Equals("yes");
             viewType = GetViewType(GetParameter("View"));
             find = GetParameter("Find");
             derivedColumns = GetDerivedColumns(configuration);
@@ -138,28 +147,43 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
         
         private void DoUpdate()
         {
-            List<Task> tasks = projectView.Find(find);
-            foreach (Task task in tasks)
+            if (initializationOK)
             {
-                foreach (DerivedColumn derivedColumn in derivedColumns)
-                    derivedColumn.DoUpdate(task);
+                foreach (ProjectView projectView in projectViews)
+                {
+                    List<Task> tasks = projectView.Find(find);
+                    foreach (Task task in tasks)
+                    {
+                        foreach (DerivedColumn derivedColumn in derivedColumns)
+                            derivedColumn.DoUpdate(task);
+                    }
+                }
             }
         }
 
         public override void Initialize()
         {
-            project = HPMUtilities.FindProject(projectName);
-            if (project == null)
-                throw new ArgumentException("Could not find project:" + projectName);
-            if (viewType == EHPMReportViewType.AgileBacklog)
-                projectView = project.ProductBacklog;
-            else if (viewType == EHPMReportViewType.AllBugsInProject)
-                projectView = project.BugTracker;
-            else
-                projectView = project.Schedule;
+            projects = new List<Project>();
+            projectViews = new List<ProjectView>();
+            initializationOK = false;
+            projects = HPMUtilities.FindProjects(projectName, inverted);
+            if (projects.Count == 0)
+                throw new ArgumentException("Could not find any matching project:" + projectName);
+            foreach (Project project in projects)
+            {
+                ProjectView projectView;
+                if (viewType == EHPMReportViewType.AgileBacklog)
+                    projectView = project.ProductBacklog;
+                else if (viewType == EHPMReportViewType.AllBugsInProject)
+                    projectView = project.BugTracker;
+                else
+                    projectView = project.Schedule;
 
+                projectViews.Add(projectView);
+            }
             foreach (DerivedColumn derivedColumn in derivedColumns)
-                derivedColumn.Initialize(projectView, ExtensionAssemblies);
+                derivedColumn.Initialize(projectViews[0], ExtensionAssemblies);
+            initializationOK = true;
             DoUpdate();
         }
 
