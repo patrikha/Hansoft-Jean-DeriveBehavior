@@ -46,7 +46,6 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
             private MethodInfo mInfo;
 
             private string customColumnName;
-            private HPMProjectCustomColumnsColumn customColumn;
 
             private EHPMProjectDefaultColumn defaultColumnType;
 
@@ -60,12 +59,6 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
 
             internal void Initialize(ProjectView projectView, List<string> extensionAssemblies)
             {
-                if (isCustomColumn)
-                {
-                    customColumn = projectView.GetCustomColumn(customColumnName);
-                    if (customColumn == null)
-                        throw new ArgumentException("Could not find custom column:" + customColumnName);
-                }
                 GenerateAssembly(extensionAssemblies);
             }
 
@@ -108,8 +101,9 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
                 if (isCustomColumn)
                 {
                     // Ensure that we get the custom column of the right project
-                    HPMProjectCustomColumnsColumn actualCustomColumn = task.ProjectView.GetCustomColumn(customColumn.m_Name);
-                    task.SetCustomColumnValue(actualCustomColumn, expressionValue);
+                    HPMProjectCustomColumnsColumn actualCustomColumn = task.ProjectView.GetCustomColumn(customColumnName);
+                    if (actualCustomColumn != null)
+                        task.SetCustomColumnValue(actualCustomColumn, expressionValue);
                 }
                 else
                     task.SetDefaultColumnValue(defaultColumnType, expressionValue);
@@ -161,14 +155,11 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
             }
         }
 
-        public override void Initialize()
+        private void InitializeProjects()
         {
             projects = new List<Project>();
             projectViews = new List<ProjectView>();
-            initializationOK = false;
             projects = HPMUtilities.FindProjects(projectName, inverted);
-            if (projects.Count == 0)
-                throw new ArgumentException("Could not find any matching project:" + projectName);
             foreach (Project project in projects)
             {
                 ProjectView projectView;
@@ -181,6 +172,12 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
 
                 projectViews.Add(projectView);
             }
+        }
+
+        public override void Initialize()
+        {
+            initializationOK = false;
+            InitializeProjects();
             foreach (DerivedColumn derivedColumn in derivedColumns)
                 derivedColumn.Initialize(projectViews[0], ExtensionAssemblies);
             initializationOK = true;
@@ -257,6 +254,7 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
                     throw new ArgumentException("Unsupported View Type: " + viewType);
             }
         }
+
         public override void OnBeginProcessBufferedEvents(EventArgs e)
         {
             changeImpact = false;
