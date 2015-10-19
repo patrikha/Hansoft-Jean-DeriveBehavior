@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Xml;
@@ -12,9 +13,13 @@ using HPMSdk;
 using Hansoft.ObjectWrapper;
 
 using Hansoft.Jean.Behavior;
+using Hansoft.ObjectWrapper.CustomColumnValues;
 
 namespace Hansoft.Jean.Behavior.DeriveBehavior
 {
+    public class NoNewValueException : Exception
+    { }
+
     public class DeriveBehavior : AbstractBehavior
     {
         const string assemblySourceTemplate = @"
@@ -57,7 +62,7 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
                 this.expression = expression;
             }
 
-            internal void Initialize(ProjectView projectView, List<string> extensionAssemblies)
+            internal void Initialize(List<string> extensionAssemblies)
             {
                 GenerateAssembly(extensionAssemblies);
             }
@@ -78,7 +83,7 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
                 cParams.ReferencedAssemblies.Add("HPMSdkManaged_4_5.x86.dll");
                 foreach (string extension in extensionAssemblies)
                     cParams.ReferencedAssemblies.Add(extension);
-                
+
                 string[] sources = new string[] { string.Format(assemblySourceTemplate, GetClassName(), expression) };
                 CompilerResults results = cProvider.CompileAssemblyFromSource(cParams, sources);
                 if (results.Errors.HasErrors)
@@ -97,16 +102,35 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
 
             internal void DoUpdate(Task task)
             {
-                object expressionValue = mInfo.Invoke(null, new object[] { task });
-                if (isCustomColumn)
+                try
                 {
-                    // Ensure that we get the custom column of the right project
-                    HPMProjectCustomColumnsColumn actualCustomColumn = task.ProjectView.GetCustomColumn(customColumnName);
-                    if (actualCustomColumn != null)
-                        task.SetCustomColumnValue(actualCustomColumn, expressionValue);
+                    Debug.Print("DeriveBehaviour - {0} - {1} - processing task \"{2}\"",
+                        isCustomColumn ? customColumnName : defaultColumnType.ToString(),
+                        expression,
+                        task.Name);
+                    var expressionValue = mInfo.Invoke(null, new object[] { task });
+                    if (isCustomColumn)
+                    {
+                        // Ensure that we get the custom column of the right project
+                        var customColumn = task.ProjectView.GetCustomColumn(customColumnName);
+                        var oldValue = task.GetCustomColumnValue(customColumnName);
+
+                        if (customColumn != null && oldValue != null && !oldValue.Equals(expressionValue))
+                            task.SetCustomColumnValue(customColumn, expressionValue);
+                    }
+                    else
+                    {
+                        var oldValue = task.GetDefaultColumnValue(defaultColumnType);
+                        if (oldValue != null && !oldValue.Equals(expressionValue))
+                            task.SetDefaultColumnValue(defaultColumnType, expressionValue);
+                    }
                 }
-                else
-                    task.SetDefaultColumnValue(defaultColumnType, expressionValue);
+                catch (TargetInvocationException e)
+                {
+                    // Hack to let column handlers bail out when they don't have any new value to set.
+                    if (!(e.InnerException is NoNewValueException))
+                        throw;
+                }
             }
         }
 
@@ -122,7 +146,7 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
         bool initializationOK = false;
 
         public DeriveBehavior(XmlElement configuration)
-            : base(configuration) 
+            : base(configuration)
         {
             projectName = GetParameter("HansoftProject");
             string invert = GetParameter("InvertedMatch");
@@ -138,7 +162,7 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
         {
             get { return title; }
         }
-        
+
         private void DoUpdate()
         {
             if (initializationOK)
@@ -179,7 +203,7 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
             initializationOK = false;
             InitializeProjects();
             foreach (DerivedColumn derivedColumn in derivedColumns)
-                derivedColumn.Initialize(projectViews[0], ExtensionAssemblies);
+                derivedColumn.Initialize(ExtensionAssemblies);
             initializationOK = true;
             DoUpdate();
         }
@@ -229,6 +253,9 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
                         case ("WorkRemaining"):
                             columnDefaults.Add(new DerivedColumn(false, null, EHPMProjectDefaultColumn.WorkRemaining, el.GetAttribute("Expression")));
                             break;
+                        case ("IsCompleted"):
+                            columnDefaults.Add(new DerivedColumn(false, null, EHPMProjectDefaultColumn.IsCompleted, el.GetAttribute("Expression")));
+                            break;
                         default:
                             throw new ArgumentException("Unknown column type specified in Derive behavior : " + el.Name);
                     }
@@ -268,35 +295,35 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
 
         public override void OnTaskChange(TaskChangeEventArgs e)
         {
-//            if (Task.GetTask(e.Data.m_TaskID).MainProjectID.m_ID == project.UniqueID.m_ID)
-//            {
-                if (!BufferedEvents)
-                    DoUpdate();
-                else
-                    changeImpact = true;
-//            }
+            //            if (Task.GetTask(e.Data.m_TaskID).MainProjectID.m_ID == project.UniqueID.m_ID)
+            //            {
+            if (!BufferedEvents)
+                DoUpdate();
+            else
+                changeImpact = true;
+            //            }
         }
 
         public override void OnTaskChangeCustomColumnData(TaskChangeCustomColumnDataEventArgs e)
         {
-//            if (Task.GetTask(e.Data.m_TaskID).MainProjectID.m_ID == project.UniqueID.m_ID)
-//            {
-                if (!BufferedEvents)
-                    DoUpdate();
-                else
-                    changeImpact = true;
-//            }
+            //            if (Task.GetTask(e.Data.m_TaskID).MainProjectID.m_ID == project.UniqueID.m_ID)
+            //            {
+            if (!BufferedEvents)
+                DoUpdate();
+            else
+                changeImpact = true;
+            //            }
         }
 
         public override void OnTaskCreate(TaskCreateEventArgs e)
         {
-//            if (e.Data.m_ProjectID.m_ID == projectView.UniqueID.m_ID)
-//            {
-                if (!BufferedEvents)
-                    DoUpdate();
-                else
-                    changeImpact = true;
-//            }
+            //            if (e.Data.m_ProjectID.m_ID == projectView.UniqueID.m_ID)
+            //            {
+            if (!BufferedEvents)
+                DoUpdate();
+            else
+                changeImpact = true;
+            //            }
         }
 
         public override void OnTaskDelete(TaskDeleteEventArgs e)
@@ -309,13 +336,13 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
 
         public override void OnTaskMove(TaskMoveEventArgs e)
         {
-//            if (e.Data.m_ProjectID.m_ID == projectView.UniqueID.m_ID)
-//            {
-                if (!BufferedEvents)
-                    DoUpdate();
-                else
-                    changeImpact = true;
-//            }
+            //            if (e.Data.m_ProjectID.m_ID == projectView.UniqueID.m_ID)
+            //            {
+            if (!BufferedEvents)
+                DoUpdate();
+            else
+                changeImpact = true;
+            //            }
         }
     }
 }
