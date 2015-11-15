@@ -264,24 +264,6 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
             return columnDefaults;
         }
 
-        // TODO: Subject to refactoring
-        private EHPMReportViewType GetViewType(string viewType)
-        {
-            switch (viewType)
-            {
-                case ("Agile"):
-                    return EHPMReportViewType.AgileMainProject;
-                case ("Scheduled"):
-                    return EHPMReportViewType.ScheduleMainProject;
-                case ("Bugs"):
-                    return EHPMReportViewType.AllBugsInProject;
-                case ("Backlog"):
-                    return EHPMReportViewType.AgileBacklog;
-                default:
-                    throw new ArgumentException("Unsupported View Type: " + viewType);
-            }
-        }
-
         public override void OnBeginProcessBufferedEvents(EventArgs e)
         {
             changeImpact = false;
