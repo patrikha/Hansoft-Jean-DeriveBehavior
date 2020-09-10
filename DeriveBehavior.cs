@@ -80,7 +80,7 @@ namespace Hansoft.Jean.Behavior.DeriveBehavior.Expressions
                 cParams.ReferencedAssemblies.Add("System.Core.dll");
                 cParams.ReferencedAssemblies.Add("ObjectWrapper.dll");
                 // TODO: It is not that great to have the assembly name hard coded here since the 7.1 version of the SDK
-                cParams.ReferencedAssemblies.Add("HPMSdkManaged_4_5.x86.dll");
+                cParams.ReferencedAssemblies.Add("HPMSdkManaged_4_5.x64.dll");
                 foreach (string extension in extensionAssemblies)
                     cParams.ReferencedAssemblies.Add(extension);
 
